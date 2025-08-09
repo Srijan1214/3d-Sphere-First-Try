@@ -77,6 +77,17 @@ async function initWebGPU() {
 		},
 	})
 
+    const timeBuffer = device.createBuffer({
+        label: "Time buffer",
+        size: 4, // 1 x float32
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    function updateTimeBuffer(time: number) {
+        const t = new Float32Array([time]);
+        device.queue.writeBuffer(timeBuffer, 0, t.buffer);
+    }
+
 	const bindGroup = device.createBindGroup({
 		layout: renderPipeline.getBindGroupLayout(0),
 		entries: [
@@ -84,6 +95,10 @@ async function initWebGPU() {
 				binding: 0,
 				resource: { buffer: canvasSizeBuffer },
 			},
+            {
+                binding: 1,
+                resource: { buffer: timeBuffer },
+            },
 		],
 	})
 
@@ -118,7 +133,8 @@ async function initWebGPU() {
 		device.queue.submit([encoder.finish()])
 	}
 
-	function animate() {
+	function animate(time: number) {
+		updateTimeBuffer(time * 0.001) // convert ms to seconds if desired
 		render()
 		requestAnimationFrame(animate)
 	}
