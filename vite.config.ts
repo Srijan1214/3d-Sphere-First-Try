@@ -8,6 +8,9 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    watch: {
+       usePolling: true
+    },
     open: true,
   },
 });
