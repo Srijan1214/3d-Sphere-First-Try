@@ -6,17 +6,15 @@ struct CanvasSize {
 struct Time {
     value: f32
 };
-@group(0) @binding(1) var<uniform> time: Time;
 
 @fragment
 fn fragmentMain(@location(0) pos: vec2f) -> @location(0) vec4f {
-    var timeSeconds =  time.value;
     var posAdjusted = pos;
     posAdjusted.x = posAdjusted.x * canvasSize.size.x/ canvasSize.size.y;
 
     var d = distance(posAdjusted, vec2f(0, 0));
-    var color = palette(d + timeSeconds);
-    d = sin(d * 8.0 + timeSeconds) / 8.;
+    var color = palette(d);
+    d = sin(d * 8.0) / 8.;
     d = abs(d);
     d = pow(0.02/d, 1.7);
 

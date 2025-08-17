@@ -7,6 +7,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "types": ["@webgpu/types"],
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
     "allowJs": false,

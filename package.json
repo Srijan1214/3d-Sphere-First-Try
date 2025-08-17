@@ -8,7 +8,12 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@webgpu/types": "^0.1.64",
     "typescript": "^5.9.2",
     "vite": "^4.5.14"
+  },
+  "dependencies": {
+    "@types/gl-matrix": "^3.2.0",
+    "gl-matrix": "^3.4.4"
   }
 }
