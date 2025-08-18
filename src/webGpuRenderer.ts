@@ -1,3 +1,4 @@
+import { mat4, vec3 } from "gl-matrix"
 import { Camera } from "./camera"
 import { InputState } from "./InputManager"
 
@@ -8,7 +9,9 @@ export class WebGPURenderer {
 	private renderPipeline: GPURenderPipeline
 
     private canvasSizeBuffer: GPUBuffer;
-    private canvasSizeBindGroup: GPUBindGroup;
+    private cameraUniformBuffer: GPUBuffer;
+    private sphereUniformBuffer: GPUBuffer;
+    private renderBindGroup: GPUBindGroup;
 
 
 	private vertices = new Float32Array([
@@ -32,47 +35,62 @@ export class WebGPURenderer {
 
 		device.queue.writeBuffer(this.vertexBuffer, 0, this.vertices)
 
-        // Create canvas size uniform buffer
+        this.initializeRenderUniforms()
+
+	}
+
+    private initializeRenderUniforms() {
+        // Canvas size buffer
         this.canvasSizeBuffer = this.device.createBuffer({
-            size: 8, // 2 floats * 4 bytes = 8 bytes
+            size: 8, // 2 floats
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
-        // Create bind group layout for canvas size
-        const canvasSizeBindGroupLayout = this.renderPipeline.getBindGroupLayout(0)
+        // Camera uniform buffer (matrices + position)
+        this.cameraUniformBuffer = this.device.createBuffer({
+            size: 36 * 4, // 35 floats * 4 bytes
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        // Sphere uniform buffer
+        this.sphereUniformBuffer = this.device.createBuffer({
+            size: 16, // 4 floats (center + radius)
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        // Initialize sphere data (center at origin, radius 1)
+        const sphereData = new Float32Array([0.0, 0.0, 0.0, 1.0]); // center (0,0,0), radius 1
+        this.device.queue.writeBuffer(this.sphereUniformBuffer, 0, sphereData);
+
+        // Get bind group layout from pipeline
+        const bindGroupLayout = this.renderPipeline.getBindGroupLayout(0);
+
         // Create bind group
-        this.canvasSizeBindGroup = this.device.createBindGroup({
-            layout: canvasSizeBindGroupLayout,
+        this.renderBindGroup = this.device.createBindGroup({
+            layout: bindGroupLayout,
             entries: [
-                {
-                    binding: 0,
-                    resource: { buffer: this.canvasSizeBuffer }
-                }
+                { binding: 0, resource: { buffer: this.canvasSizeBuffer } },
+                { binding: 1, resource: { buffer: this.cameraUniformBuffer } },
+                { binding: 2, resource: { buffer: this.sphereUniformBuffer } }
             ]
         });
 
-        // Update canvas size initially
-        this.updateCanvasSize();
-	}
-
-    updateCanvasSize() {
-        // Get canvas dimensions directly from the canvas element
-        const width = 1880
-        const height = 1070
-
-        console.log(width, height)
-        
-        // Or you can use client dimensions:
-        // const width = this.canvas.clientWidth;
-        // const height = this.canvas.clientHeight;
-        
-        const canvasSizeData = new Float32Array([width, height]);
-        this.device.queue.writeBuffer(this.canvasSizeBuffer, 0, canvasSizeData);
     }
 
-	onResizeCallback(width: number, height: number) {
-        this.updateCanvasSize()
-	}
+    updateUniforms(canvasWidth: number, canvasHeight: number, inverseProjection: mat4, inverseView: mat4, cameraPosition: vec3) {
+        // Update canvas size
+        const canvasSizeData = new Float32Array([canvasWidth, canvasHeight]);
+        this.device.queue.writeBuffer(this.canvasSizeBuffer, 0, canvasSizeData);
+
+        // Update camera data
+        const cameraData = new Float32Array(35);
+        cameraData.set(inverseProjection, 0);
+        cameraData.set(inverseView, 16);
+        cameraData[32] = cameraPosition[0];
+        cameraData[33] = cameraPosition[1];
+        cameraData[34] = cameraPosition[2];
+        this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, cameraData);
+    }
 
 	// Render
 	render() {
@@ -87,7 +105,7 @@ export class WebGPURenderer {
 			],
 		})
 		pass.setPipeline(this.renderPipeline)
-        pass.setBindGroup(0, this.canvasSizeBindGroup); // Bind canvas size
+        pass.setBindGroup(0, this.renderBindGroup); // Bind canvas size
 		pass.setVertexBuffer(0, this.vertexBuffer)
 		pass.draw(this.vertices.length / 2)
 		pass.end()

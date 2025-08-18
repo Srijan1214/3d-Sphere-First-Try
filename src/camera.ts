@@ -1,4 +1,4 @@
-import { mat4, vec3, glm } from "gl-matrix"
+import { mat4, vec3, glm, vec4 } from "gl-matrix"
 import { InputState } from "./InputManager"
 
 export class Camera {
@@ -45,7 +45,7 @@ export class Camera {
 		this.nearClip = nearClip
 		this.farClip = farClip
 
-		this.position = vec3.fromValues(0, 0, 3)
+		this.position = vec3.fromValues(0, 0, 5)
 		this.forwardDirection = vec3.fromValues(0, 0, -1)
 
         this.viewportWidth = viewportWidth
@@ -58,18 +58,22 @@ export class Camera {
 		this.inverseView = mat4.create()
 
         this.device = device
-		this.initializeRayDirectionCompute(device, computeShaderModule)
+
+        this.recalculateView()
+		this.recalculateProjection()
+		// this.initializeRayDirectionCompute(device, computeShaderModule)
 	}
 
 	onResize(width: number, height: number) {
-		if (width === this.viewportWidth && height === this.viewportHeight)
-			return
+		// if (width === this.viewportWidth && height === this.viewportHeight)
+		// 	return
 
 		this.viewportWidth = width
 		this.viewportHeight = height
 
+        this.recalculateView()
 		this.recalculateProjection()
-        this.recalculateRayDirections(this.device)
+        // this.recalculateRayDirections(this.device)
 	}
 
 	private recalculateProjection() {
@@ -86,6 +90,7 @@ export class Camera {
 		)
 		mat4.invert(this.inverseProjection, this.projection)
 	}
+
 
 	private recalculateView() {
 		const target = vec3.create()
@@ -105,13 +110,12 @@ export class Camera {
 		}
 
 		// Update uniform buffer with current matrices
-		const uniformData = new Float32Array(34) // 2 mat4 matrices = 32 floats
+		const uniformData = new Float32Array(36) // 2 mat4 matrices = 32 floats
 		uniformData.set(this.inverseProjection, 0) // First 16 floats
 		uniformData.set(this.inverseView, 16) // Next 16 floats
-        uniformData[32] = this.viewportWidth  // Viewport width
-        uniformData[33] = this.viewportHeight // Viewport height
-
-
+        uniformData[32] = this.position[0] // Camera position X
+        uniformData[33] = this.position[1] // Camera position Y
+        uniformData[34] = this.position[2] // Camera position Z
 
 		device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
@@ -136,7 +140,7 @@ export class Camera {
 	) {
 		// Create uniform buffer for matrices
 		this.uniformBuffer = device.createBuffer({
-			size: 34 * 4, // 32 floats * 4 bytes
+			size: 36 * 4, // 32 floats * 4 bytes
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		})
 

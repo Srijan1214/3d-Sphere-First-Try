@@ -22,6 +22,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     if (computeShaderModule && renderer) {
         world.createCamera(webGpuManager.getDevice(), computeShaderModule, canvas.clientWidth, canvas.clientHeight);
+        renderer?.updateUniforms(canvas.clientWidth, canvas.clientHeight, world.camera.inverseProjection, world.camera.inverseView, world.camera.position);
         resizeCanvasAndConfigure()
         renderer.animate();
     } else {
