@@ -28,7 +28,6 @@ export class Camera {
 		verticalFOV: number = 45.0,
 		nearClip: number = 0.1,
 		farClip: number = 100.0,
-		device: GPUDevice,
 		viewportWidth: number,
 		viewportHeight: number
 	) {
@@ -48,10 +47,20 @@ export class Camera {
 		this.inverseProjection = mat4.create()
 		this.inverseView = mat4.create()
 
-		this.device = device
-
 		this.recalculateView()
 		this.recalculateProjection()
+	}
+
+	updateCameraProperties(
+		verticalFOV: number,
+		nearClip: number,
+		farClip: number
+	) {
+		this.verticalFOV = verticalFOV
+		this.nearClip = nearClip
+		this.farClip = farClip
+        this.recalculateView()
+        this.recalculateProjection()
 	}
 
 	onResize(width: number, height: number) {
@@ -135,11 +144,17 @@ export class Camera {
 			moved = true
 		}
 
-        const mouseDelta = [input.curMousePosition[0] - input.lastFrameMousePosition[0], input.curMousePosition[1] - input.lastFrameMousePosition[1]]
+		const mouseDelta = [
+			input.curMousePosition[0] - input.lastFrameMousePosition[0],
+			input.curMousePosition[1] - input.lastFrameMousePosition[1],
+		]
 
 		// Mouse rotation - use mouseDelta when pointer is locked
-		if (input.isMouseRightButtonDown && mouseDelta[0] !== 0 && mouseDelta[1] !== 0) {
-            console.log("Mouse delta:", mouseDelta);
+		if (
+			input.isMouseRightButtonDown &&
+			mouseDelta[0] !== 0 &&
+			mouseDelta[1] !== 0
+		) {
 			const delta = mouseDelta
 
 			if (delta[0] !== 0 || delta[1] !== 0) {
@@ -177,87 +192,5 @@ export class Camera {
 			this.recalculateView()
 			this.recalculateProjection()
 		}
-
-		// No need to track lastMousePosition when using pointer lock
 	}
-
-	// onUpdate(deltaTime: number, input: InputState) {
-	// 	let moved = false
-
-	// 	// Movement
-	// 	const speed = 0.01 * deltaTime
-	// 	const upDirection = vec3.fromValues(0, 1, 0)
-	// 	const rightDirection = vec3.create()
-	// 	vec3.cross(rightDirection, this.forwardDirection, upDirection)
-
-	// 	if (input.keys.w) {
-	// 		const movement = vec3.create()
-	// 		vec3.scale(movement, this.forwardDirection, speed)
-	// 		vec3.add(this.position, this.position, movement)
-	// 		moved = true
-	// 	}
-	// 	if (input.keys.s) {
-	// 		const movement = vec3.create()
-	// 		vec3.scale(movement, this.forwardDirection, -speed)
-	// 		vec3.add(this.position, this.position, movement)
-	// 		moved = true
-	// 	}
-	// 	if (input.keys.a) {
-	// 		const movement = vec3.create()
-	// 		vec3.scale(movement, rightDirection, -speed)
-	// 		vec3.add(this.position, this.position, movement)
-	// 		moved = true
-	// 	}
-	// 	if (input.keys.d) {
-	// 		const movement = vec3.create()
-	// 		vec3.scale(movement, rightDirection, speed)
-	// 		vec3.add(this.position, this.position, movement)
-	// 		moved = true
-	// 	}
-
-	// 	// Mouse rotation
-	// 	if (input.mouseDown) {
-	// 		const delta = [
-	// 			input.mousePosition[0] - this.lastMousePosition[0],
-	// 			input.mousePosition[1] - this.lastMousePosition[1],
-	// 		]
-
-	// 		if (delta[0] !== 0 || delta[1] !== 0) {
-	// 			const rotationSpeed = 0.0001
-	// 			const pitchDelta = delta[1] * rotationSpeed
-	// 			const yawDelta = delta[0] * rotationSpeed
-
-	// 			// Rotate around Y axis (yaw)
-	// 			const yawRotation = mat4.create()
-	// 			mat4.rotateY(yawRotation, yawRotation, -yawDelta)
-
-	// 			// Rotate around right vector (pitch)
-	// 			const pitchRotation = mat4.create()
-	// 			mat4.rotate(
-	// 				pitchRotation,
-	// 				pitchRotation,
-	// 				-pitchDelta,
-	// 				rightDirection
-	// 			)
-
-	// 			// Apply rotations to forward direction
-	// 			const rotation = mat4.create()
-	// 			mat4.multiply(rotation, yawRotation, pitchRotation)
-
-	// 			const newForward = vec3.create()
-	// 			vec3.transformMat4(newForward, this.forwardDirection, rotation)
-	// 			vec3.normalize(this.forwardDirection, newForward)
-
-	// 			moved = true
-	// 		}
-	// 	}
-
-	// 	if (moved) {
-	// 		// Trigger ray direction recalculation
-	//         this.recalculateView()
-	//         this.recalculateProjection()
-	// 	}
-
-	// 	this.lastMousePosition = [...input.mousePosition]
-	// }
 }

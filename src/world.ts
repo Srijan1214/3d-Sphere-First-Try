@@ -22,7 +22,6 @@ export class World {
 			45.0,
 			0.1,
 			100.0,
-			device,
 			viewportWidth,
 			viewportHeight
 		)

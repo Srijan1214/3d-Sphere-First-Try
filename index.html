@@ -1,18 +1,75 @@
-<!--
-/**
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
- */
--->
 <!doctype html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>02: Drawing a Square - WebGPU Life</title>
+    <title>3D Sphere - WebGPU</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <canvas></canvas>
+    <div class="app-container">
+        <div class="control-panel">
+            <h3>Camera Settings</h3>
+            <div class="control-group">
+                <label for="fov">Field of View</label>
+                <input type="range" id="fov" min="30" max="120" value="45">
+                <span id="fov-value">45°</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="near-clip">Near Clip</label>
+                <input type="number" id="near-clip" value="0.1" step="0.1" min="0.01">
+            </div>
+            
+            <div class="control-group">
+                <label for="far-clip">Far Clip</label>
+                <input type="number" id="far-clip" value="100" step="1" min="1">
+            </div>
+
+            <h3>Sphere Settings</h3>
+            <div class="control-group">
+                <label for="sphere-radius">Radius</label>
+                <input type="range" id="sphere-radius" min="0.5" max="5" value="1" step="0.01">
+                <span id="radius-value">1.0</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="sphere-x">Position X</label>
+                <input type="number" id="sphere-x" value="0" step="0.1">
+            </div>
+            
+            <div class="control-group">
+                <label for="sphere-y">Position Y</label>
+                <input type="number" id="sphere-y" value="0" step="0.1">
+            </div>
+            
+            <div class="control-group">
+                <label for="sphere-z">Position Z</label>
+                <input type="number" id="sphere-z" value="0" step="0.1">
+            </div>
+
+            <h3>Lighting</h3>
+            <div class="control-group">
+                <label for="light-x">Light X</label>
+                <input type="range" id="light-x" min="-1" max="1" value="-1" step="0.01">
+                <span id="light-x-value">-1.0</span>
+            </div>
+            <div class="control-group">
+                <label for="light-y">Light Y</label>
+                <input type="range" id="light-y" min="-1" max="1" value="-1" step="0.01">
+                <span id="light-y-value">-1.0</span>
+            </div>
+            <div class="control-group">
+                <label for="light-z">Light Z</label>
+                <input type="range" id="light-z" min="-1" max="1" value="-1" step="0.01">
+                <span id="light-z-value">-1.0</span>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas></canvas>
+        </div>
+    </div>
+    
     <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
