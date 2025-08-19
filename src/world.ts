@@ -10,6 +10,7 @@ export class World {
 	private canvasSizeBuffer: GPUBuffer
 	private cameraUniformBuffer: GPUBuffer
 	private sphereUniformBuffer: GPUBuffer
+	private directionalLightUniformBuffer: GPUBuffer
 
 	constructor(
 		device: GPUDevice,
@@ -29,6 +30,7 @@ export class World {
         this.updateCanvasSizeUniform(viewportWidth, viewportHeight)
         this.updateCameraUniform(this.camera.inverseProjection, this.camera.inverseView, this.camera.position)
 		this.updateSphereUniform(vec3.fromValues(0, 0, 0), 1.0)
+        this.updateDirectionalLightUniform(vec3.fromValues(-1.0, -1.0, -1.0))
 	}
 
 	resizeWidthHeight(width: number, height: number) {
@@ -73,6 +75,12 @@ export class World {
 			size: 16, // 4 floats (center + radius)
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		})
+
+		// Directional light uniform buffer
+		this.directionalLightUniformBuffer = this.device.createBuffer({
+			size: 12, // 3 floats (direction)
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		})
 	}
 
 	updateSphereUniform(center: vec3, radius: number) {
@@ -81,11 +89,17 @@ export class World {
 		this.device.queue.writeBuffer(this.sphereUniformBuffer, 0, sphereData)
 	}
 
+    updateDirectionalLightUniform(direction: vec3) {
+		const lightData = new Float32Array([direction[0], direction[1], direction[2]])
+		this.device.queue.writeBuffer(this.directionalLightUniformBuffer, 0, lightData)
+	}
+
 	getWorldGpuUniformBuffers(): GPUBuffer[] {
 		return [
 			this.canvasSizeBuffer,
 			this.cameraUniformBuffer,
 			this.sphereUniformBuffer,
+            this.directionalLightUniformBuffer
 		]
 	}
 

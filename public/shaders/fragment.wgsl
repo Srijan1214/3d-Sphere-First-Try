@@ -16,6 +16,7 @@ struct Sphere {
 @group(0) @binding(0) var<uniform> canvasSize: CanvasSize;
 @group(0) @binding(1) var<uniform> camera: CameraUniforms;
 @group(0) @binding(2) var<uniform> sphere: Sphere;
+@group(0) @binding(3) var<uniform> directionalLight: vec3<f32>; // Directional light direction
 
 @fragment
 fn fragmentMain(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
@@ -33,9 +34,18 @@ fn fragmentMain(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f3
     
     // Perform ray-sphere intersection
     let t = raySphereIntersection(rayOrigin, rayDirection, sphere.center, sphere.radius);
-    
+
+    let hitPoint = rayOrigin + rayDirection * t;
+    let normalAtHitPoint = calculateSphereNormal(hitPoint, sphere.center);
+
+    let lightIntensity = max(dot(normalAtHitPoint, -directionalLight), 0.0);
+    let baseColor = vec3<f32>(0.5, 0.5, 1.0); // Gray color for the sphere
+
+    let color = baseColor * lightIntensity;
+
     if (t > 0.0) {
         // Hit the sphere - render blue
+        return vec4<f32>(color, 1.0);
         return vec4<f32>(0.0, 0.0, 1.0, 1.0);
     } else {
         // Miss - render background (black or gradient)
@@ -79,4 +89,8 @@ fn raySphereIntersection(rayOrigin: vec3<f32>, rayDirection: vec3<f32>, sphereCe
     } else {
         return -1.0; // Behind the camera
     }
+}
+
+fn calculateSphereNormal(hitPoint: vec3<f32>, sphereCenter: vec3<f32>) -> vec3<f32> {
+    return normalize(hitPoint - sphereCenter);
 }
