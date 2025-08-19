@@ -2,6 +2,7 @@
 import { loadShader } from "./shaders"
 import { createUniformBuffer, updateUniformBuffer } from "./buffers"
 import { WebGPURenderer } from "./webGpuRenderer"
+import { World } from "./world"
 
 export class WebGpuManager {
 	private device: GPUDevice
@@ -13,12 +14,10 @@ export class WebGpuManager {
 	private computeShaderModule: GPUShaderModule | undefined
 	private renderer: WebGPURenderer | undefined
 
-	constructor(canvas: HTMLCanvasElement) {
-		this.canvas = canvas
-	}
-
-	async initialize() {
-		await this.initWebGPU(this.canvas)
+	static async initialize(canvas: HTMLCanvasElement): Promise<WebGpuManager> {
+		const instance = new WebGpuManager()
+		await instance.initWebGPU(canvas)
+		return instance
 	}
 
 	async initWebGPU(canvas: HTMLCanvasElement) {
@@ -46,6 +45,17 @@ export class WebGpuManager {
 			"compute shader"
 		)
 
+		this.canvasContext = canvas.getContext("webgpu") as GPUCanvasContext
+		this.canvasContext.configure({
+			device: this.device,
+			format: this.canvasFormat,
+			alphaMode: "opaque",
+		})
+	}
+
+	getWorldRenderer(world: World,
+        timeStepInputHandler: (deltaTime: number) => void
+    ): WebGPURenderer {
 		// Pipeline
 		const vertexBufferLayout = {
 			arrayStride: 8,
@@ -65,21 +75,14 @@ export class WebGpuManager {
 				targets: [{ format: this.canvasFormat }],
 			},
 		})
-		this.canvasContext = canvas.getContext("webgpu") as GPUCanvasContext
-
 		this.renderer = new WebGPURenderer(
 			this.device,
 			this.canvasContext,
-			renderPipeline
+			renderPipeline,
+            world,
+            timeStepInputHandler
 		)
-	}
-
-	resizeCanvas() {
-		this.canvasContext.configure({
-			device: this.device,
-			format: this.canvasFormat,
-			alphaMode: "opaque",
-		})
+		return this.renderer
 	}
 
 	getDevice(): GPUDevice {

@@ -1,5 +1,7 @@
+import { WorldStateManager } from "./WorldStateManager"
+
 export interface InputState {
-	keys: {
+	keyDownMap: {
 		w: boolean
 		s: boolean
 		a: boolean
@@ -7,101 +9,113 @@ export interface InputState {
 		q: boolean
 		e: boolean
 	}
-	mousePosition: [number, number]
-	mouseDown: boolean
+	isMouseRightButtonDown: boolean
+    lastFrameMousePosition: [number, number]
+	curMousePosition: [number, number]
+    hasActiveCurrentInput: boolean
 }
 
 export class InputManager {
 	private input: InputState = {
-		keys: { w: false, s: false, a: false, d: false, q: false, e: false },
-		mousePosition: [0, 0],
-		mouseDown: false,
+		keyDownMap: { w: false, s: false, a: false, d: false, q: false, e: false },
+        isMouseRightButtonDown: false,
+        lastFrameMousePosition: [0, 0],
+		curMousePosition: [0, 0],
+		hasActiveCurrentInput: false,
 	}
 
-	private updateCallback: (input: InputState) => void
-
-	constructor(
-		canvas: HTMLCanvasElement,
-		updateCallback: (input: InputState) => void,
-	) {
+	constructor(canvas: HTMLCanvasElement) {
 		this.setupEventListeners(canvas)
-		this.updateCallback = updateCallback
+	}
+
+	private hasActiveInput(): boolean {
+		// Check if any keys are pressed
+		const anyKeyPressed = Object.values(this.input.keyDownMap).some((key) => key)
+
+		return anyKeyPressed || this.input.isMouseRightButtonDown
+	}
+
+	private updateWorldInputState() {
+        this.input.hasActiveCurrentInput = this.hasActiveInput()
 	}
 
 	private setupEventListeners(canvas: HTMLCanvasElement) {
 		window.addEventListener("keydown", (e) => {
 			switch (e.code) {
 				case "KeyW":
-					this.input.keys.w = true
+					this.input.keyDownMap.w = true
 					break
 				case "KeyS":
-					this.input.keys.s = true
+					this.input.keyDownMap.s = true
 					break
 				case "KeyA":
-					this.input.keys.a = true
+					this.input.keyDownMap.a = true
 					break
 				case "KeyD":
-					this.input.keys.d = true
+					this.input.keyDownMap.d = true
 					break
 				case "KeyQ":
-					this.input.keys.q = true
+					this.input.keyDownMap.q = true
 					break
 				case "KeyE":
-					this.input.keys.e = true
+					this.input.keyDownMap.e = true
 					break
 			}
-            this.updateCallback(this.input)
+			this.updateWorldInputState()
 		})
 
 		window.addEventListener("keyup", (e) => {
 			switch (e.code) {
 				case "KeyW":
-					this.input.keys.w = false
+					this.input.keyDownMap.w = false
 					break
 				case "KeyS":
-					this.input.keys.s = false
+					this.input.keyDownMap.s = false
 					break
 				case "KeyA":
-					this.input.keys.a = false
+					this.input.keyDownMap.a = false
 					break
 				case "KeyD":
-					this.input.keys.d = false
+					this.input.keyDownMap.d = false
 					break
 				case "KeyQ":
-					this.input.keys.q = false
+					this.input.keyDownMap.q = false
 					break
 				case "KeyE":
-					this.input.keys.e = false
+					this.input.keyDownMap.e = false
 					break
 			}
-            this.updateCallback(this.input)
+			this.updateWorldInputState()
 		})
 
 		canvas.addEventListener("mousedown", (e) => {
-			if (e.button === 2) {
-				// Right mouse button
-				this.input.mouseDown = true
-                this.updateCallback(this.input)
-				canvas.requestPointerLock()
+			if (e.button === 0) {
+				this.input.isMouseRightButtonDown = true
+                this.input.curMousePosition = [e.clientX, e.clientY]
+				this.updateWorldInputState()
 			}
 		})
 
 		canvas.addEventListener("mouseup", (e) => {
-			if (e.button === 2) {
-				this.input.mouseDown = false
-                this.updateCallback(this.input)
-				document.exitPointerLock()
+			if (e.button === 0) {
+				this.input.isMouseRightButtonDown = false
+                this.input.curMousePosition = [e.clientX, e.clientY]
+				this.updateWorldInputState()
 			}
 		})
 
 		canvas.addEventListener("mousemove", (e) => {
-			this.input.mousePosition = [e.clientX, e.clientY]
-            this.updateCallback(this.input)
+            this.input.curMousePosition = [e.clientX, e.clientY]
+			this.updateWorldInputState()
 		})
 
 		// Disable context menu on right click
 		canvas.addEventListener("contextmenu", (e) => e.preventDefault())
 	}
+
+    setLastMousePosition(position: [number, number]) {
+        this.input.lastFrameMousePosition = position
+    }
 
 	getInput(): InputState {
 		return this.input
