@@ -22,6 +22,8 @@ export class WorldStateManager {
 			this.world.updateCameraUniform(
 				camera.inverseProjection,
 				camera.inverseView,
+				camera.projection,
+				camera.view,
 				camera.position
 			)
 		}
@@ -52,6 +54,8 @@ export class WorldStateManager {
 		this.world.updateCameraUniform(
 			camera.inverseProjection,
 			camera.inverseView,
+			camera.projection,
+			camera.view,
 			camera.position
 		)
 	}

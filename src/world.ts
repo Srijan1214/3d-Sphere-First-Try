@@ -27,7 +27,7 @@ export class World {
 		)
 		this.allocateUniformBuffers()
         this.updateCanvasSizeUniform(viewportWidth, viewportHeight)
-        this.updateCameraUniform(this.camera.inverseProjection, this.camera.inverseView, this.camera.position)
+        this.updateCameraUniform(this.camera.inverseProjection, this.camera.inverseView, this.camera.projection, this.camera.view, this.camera.position)
 		this.updateSphereUniform(vec3.fromValues(0, 0, 0), 1.0)
         this.updateDirectionalLightUniform(vec3.fromValues(-1.0, -1.0, -1.0))
 	}
@@ -45,14 +45,19 @@ export class World {
 	updateCameraUniform(
 		inverseProjection: mat4,
 		inverseView: mat4,
+		projection: mat4,
+		view: mat4,
 		cameraPosition: vec3
 	) {
-		const cameraData = new Float32Array(35)
-		cameraData.set(inverseProjection, 0)
-		cameraData.set(inverseView, 16)
-		cameraData[32] = cameraPosition[0]
-		cameraData[33] = cameraPosition[1]
-		cameraData[34] = cameraPosition[2]
+		const cameraData = new Float32Array(68) // 4 matrices (64 floats) + position (3 floats) + padding (1 float)
+		cameraData.set(inverseProjection, 0)   // Offset 0-15
+		cameraData.set(inverseView, 16)         // Offset 16-31
+		cameraData.set(projection, 32)          // Offset 32-47
+		cameraData.set(view, 48)                // Offset 48-63
+		cameraData[64] = cameraPosition[0]      // Position X
+		cameraData[65] = cameraPosition[1]      // Position Y
+		cameraData[66] = cameraPosition[2]      // Position Z
+		// cameraData[67] is padding for alignment
 		this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, cameraData)
 	}
 
@@ -63,9 +68,9 @@ export class World {
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		})
 
-		// Camera uniform buffer (matrices + position)
+		// Camera uniform buffer (4 matrices + position + padding)
 		this.cameraUniformBuffer = this.device.createBuffer({
-			size: 36 * 4, // 35 floats * 4 bytes
+			size: 68 * 4, // 68 floats * 4 bytes = 272 bytes
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		})
 

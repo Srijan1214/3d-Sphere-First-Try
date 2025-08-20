@@ -5,6 +5,8 @@ struct CanvasSize {
 struct CameraUniforms {
     inverseProjection: mat4x4<f32>,
     inverseView: mat4x4<f32>,
+    projection: mat4x4<f32>,
+    view: mat4x4<f32>,
     position: vec3<f32>, // Camera position for ray origin
 };
 
@@ -35,7 +37,16 @@ fn fragmentMain(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f3
     // Perform ray-sphere intersection
     let t = raySphereIntersection(rayOrigin, rayDirection, sphere.center, sphere.radius);
 
+    if (t < 0.0) {
+        // Miss - render background (black or gradient)
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    } 
+
     let hitPoint = rayOrigin + rayDirection * t;
+    if (!isWithinClipPlanes(hitPoint)) {
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+
     let normalAtHitPoint = calculateSphereNormal(hitPoint, sphere.center);
 
     let lightIntensity = max(dot(normalAtHitPoint, -directionalLight), 0.0);
@@ -43,14 +54,8 @@ fn fragmentMain(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f3
 
     let color = baseColor * lightIntensity;
 
-    if (t > 0.0) {
-        // Hit the sphere - render blue
-        return vec4<f32>(color, 1.0);
-        return vec4<f32>(0.0, 0.0, 1.0, 1.0);
-    } else {
-        // Miss - render background (black or gradient)
-        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    }
+    // Hit the sphere - render blue
+    return vec4<f32>(color, 1.0);
 }
 
 fn calculateRayDirection(uv: vec2<f32>) -> vec3<f32> {
@@ -93,4 +98,16 @@ fn raySphereIntersection(rayOrigin: vec3<f32>, rayDirection: vec3<f32>, sphereCe
 
 fn calculateSphereNormal(hitPoint: vec3<f32>, sphereCenter: vec3<f32>) -> vec3<f32> {
     return normalize(hitPoint - sphereCenter);
+}
+
+fn isWithinClipPlanes(worldPoint: vec3<f32>) -> bool {
+    // Transform world point through view and projection
+    let viewSpacePoint = camera.view * vec4<f32>(worldPoint, 1.0);
+    let clipSpacePoint = camera.projection * viewSpacePoint;
+
+    // After perspective divide
+    let ndcZ = clipSpacePoint.z / clipSpacePoint.w;
+    
+    // Check if within NDC Z range [-1, +1]
+    return ndcZ >= -1.0 && ndcZ <= 1.0;
 }
