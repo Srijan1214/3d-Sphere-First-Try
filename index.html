@@ -67,6 +67,21 @@
         
         <div class="canvas-container">
             <canvas></canvas>
+            <!-- Camera Info Overlay -->
+            <div id="camera-info-overlay" style="position: absolute; top: 10px; right: 20px; z-index: 10; background: rgba(30,30,30,0.6); color: #fff; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-family: monospace; pointer-events: none; min-width: 220px;">
+                <div style="margin-bottom: 6px;">
+                    <strong>Camera Position</strong><br>
+                    <span id="camera-pos-x">x: 0.00</span>,
+                    <span id="camera-pos-y">y: 0.00</span>,
+                    <span id="camera-pos-z">z: 0.00</span>
+                </div>
+                <div>
+                    <strong>Camera Direction</strong><br>
+                    <span id="camera-dir-x">x: 0.00</span>,
+                    <span id="camera-dir-y">y: 0.00</span>,
+                    <span id="camera-dir-z">z: 0.00</span>
+                </div>
+            </div>
         </div>
     </div>
     

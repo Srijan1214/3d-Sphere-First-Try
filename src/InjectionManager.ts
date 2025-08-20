@@ -140,11 +140,33 @@ export const initMain = async () => {
 
 	const inputManager = new InputManager(canvas)
 	const worldStateManager = new WorldStateManager(world, inputManager)
+	setupControlPanelListeners(worldStateManager)
+
+	// Camera info overlay DOM elements
+	const cameraPosX = document.getElementById("camera-pos-x")
+	const cameraPosY = document.getElementById("camera-pos-y")
+	const cameraPosZ = document.getElementById("camera-pos-z")
+	const cameraDirX = document.getElementById("camera-dir-x")
+	const cameraDirY = document.getElementById("camera-dir-y")
+	const cameraDirZ = document.getElementById("camera-dir-z")
+
+	// Patch the renderer's animate loop to update overlay
 	const renderer = webGpuManager.getWorldRenderer(
 		world,
-		worldStateManager.updateWorldForNextFrame.bind(worldStateManager)
+		function patchedUpdateWorldForNextFrame(deltaTime) {
+			worldStateManager.updateWorldForNextFrame(deltaTime)
+			// Update camera overlay
+			const camera = world.getCamera()
+			if (cameraPosX && cameraPosY && cameraPosZ && cameraDirX && cameraDirY && cameraDirZ) {
+				cameraPosX.textContent = `x: ${camera.position[0].toFixed(2)}`
+				cameraPosY.textContent = `y: ${camera.position[1].toFixed(2)}`
+				cameraPosZ.textContent = `z: ${camera.position[2].toFixed(2)}`
+				cameraDirX.textContent = `x: ${camera.forwardDirection[0].toFixed(2)}`
+				cameraDirY.textContent = `y: ${camera.forwardDirection[1].toFixed(2)}`
+				cameraDirZ.textContent = `z: ${camera.forwardDirection[2].toFixed(2)}`
+			}
+		}
 	)
-	setupControlPanelListeners(worldStateManager)
 
 	// Listen for window resize events
 	window.addEventListener("resize", () => {
