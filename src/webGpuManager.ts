@@ -11,7 +11,7 @@ export class WebGpuManager {
 	private canvasFormat: GPUCanvasFormat
 	private vertexShaderModule: GPUShaderModule | undefined
 	private fragmentShaderModule: GPUShaderModule | undefined
-	private computeShaderModule: GPUShaderModule | undefined
+	private rayGenComputeShaderModule: GPUShaderModule | undefined
 	private renderer: WebGPURenderer | undefined
 
 	static async initialize(canvas: HTMLCanvasElement): Promise<WebGpuManager> {
@@ -39,10 +39,10 @@ export class WebGpuManager {
 			"/shaders/fragment.wgsl",
 			"Fragment shader"
 		)
-		this.computeShaderModule = await loadShader(
+		this.rayGenComputeShaderModule = await loadShader(
 			this.device,
-			"/shaders/compute.wgsl",
-			"compute shader"
+			"/shaders/rayGenCompute.wgsl",
+			"Ray Generation Compute shader"
 		)
 
 		this.canvasContext = canvas.getContext("webgpu") as GPUCanvasContext
@@ -53,9 +53,10 @@ export class WebGpuManager {
 		})
 	}
 
-	getWorldRenderer(world: World,
-        timeStepInputHandler: (deltaTime: number) => void
-    ): WebGPURenderer {
+	getWorldRenderer(
+		world: World,
+		timeStepInputHandler: (deltaTime: number) => void
+	): WebGPURenderer {
 		// Pipeline
 		const vertexBufferLayout = {
 			arrayStride: 8,
@@ -75,33 +76,42 @@ export class WebGpuManager {
 				targets: [{ format: this.canvasFormat }],
 			},
 		})
+
+		// Create storage texture for compute shader output
+		const canvasWidth = world.camera.viewportWidth
+		const canvasHeight = world.camera.viewportHeight
+		const storageTexture = this.device.createTexture({
+			size: [canvasWidth, canvasHeight],
+			format: "rgba8unorm",
+			usage:
+				GPUTextureUsage.STORAGE_BINDING |
+				GPUTextureUsage.TEXTURE_BINDING |
+				GPUTextureUsage.COPY_SRC |
+				GPUTextureUsage.RENDER_ATTACHMENT,
+		})
+
+		// Create compute pipeline for ray generation
+		const computePipeline = this.device.createComputePipeline({
+			layout: "auto",
+			compute: {
+				module: this.rayGenComputeShaderModule!,
+				entryPoint: "main",
+			},
+		})
+
 		this.renderer = new WebGPURenderer(
 			this.device,
 			this.canvasContext,
 			renderPipeline,
-            world,
-            timeStepInputHandler
+			computePipeline,
+			storageTexture,
+			world,
+			timeStepInputHandler
 		)
 		return this.renderer
 	}
 
 	getDevice(): GPUDevice {
 		return this.device
-	}
-
-	getVertexShaderModule(): GPUShaderModule | undefined {
-		return this.vertexShaderModule
-	}
-
-	getFragmentShaderModule(): GPUShaderModule | undefined {
-		return this.fragmentShaderModule
-	}
-
-	getComputeShaderModule(): GPUShaderModule | undefined {
-		return this.computeShaderModule
-	}
-
-	getRenderer(): WebGPURenderer | undefined {
-		return this.renderer
 	}
 }
