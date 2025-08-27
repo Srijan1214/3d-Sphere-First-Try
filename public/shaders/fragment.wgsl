@@ -49,7 +49,7 @@ fn fragmentMain(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f3
 
     let normalAtHitPoint = calculateSphereNormal(hitPoint, sphere.center);
 
-    let lightIntensity = max(dot(normalAtHitPoint, -directionalLight), 0.0);
+    let lightIntensity = max(dot(normalAtHitPoint, normalize(-directionalLight)), 0.0);
     let baseColor = vec3<f32>(0.5, 0.5, 1.0); // Gray color for the sphere
 
     let color = baseColor * lightIntensity;
