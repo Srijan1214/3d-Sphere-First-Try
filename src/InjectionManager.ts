@@ -96,21 +96,57 @@ function setupControlPanelListeners(worldStateManager: WorldStateManager) {
 					renderSpheresList()
 				})
 			})
-			node.querySelector(".delete-sphere-btn")!.addEventListener(
-				"click",
-				() => {
-					worldStateManager.deleteSphere(i)
-					renderSpheresList()
-				}
-			)
-			spheresList.appendChild(node)
-		})
-	}
+
+						// Albedo color picker
+						const albedoInput = node.querySelector(".sphere-albedo") as HTMLInputElement;
+						// Convert [r,g,b] in 0-1 to hex string
+						const rgbToHex = (r: number, g: number, b: number) =>
+							"#" + [r, g, b].map(x => {
+								const hex = Math.round(x * 255).toString(16);
+								return hex.length === 1 ? "0" + hex : hex;
+							}).join("");
+						albedoInput.value = rgbToHex(sphere.albedo[0], sphere.albedo[1], sphere.albedo[2]);
+
+						albedoInput.addEventListener("input", (e) => {
+							const hex = (e.target as HTMLInputElement).value;
+							const r = parseInt(hex.slice(1, 3), 16) / 255;
+							const g = parseInt(hex.slice(3, 5), 16) / 255;
+							const b = parseInt(hex.slice(5, 7), 16) / 255;
+							worldStateManager.updateSphereAt(i, {
+								...sphere,
+								albedo: [r, g, b, 1.0],
+							});
+						});
+
+						node.querySelector(".delete-sphere-btn")!.addEventListener(
+								"click",
+								() => {
+										worldStateManager.deleteSphere(i)
+										renderSpheresList()
+								}
+						)
+						spheresList.appendChild(node)
+				})
+		}
+
 
 	addSphereBtn.addEventListener("click", () => {
-		worldStateManager.addSphere()
-		renderSpheresList()
-	})
+		// Default color for new sphere: use the color picker from the first template, or fallback to white
+		let defaultAlbedo: [number, number, number, number] = [1.0, 1.0, 1.0, 1.0];
+		const template = document.getElementById("sphere-template") as HTMLTemplateElement;
+		if (template) {
+			const colorInput = template.content.querySelector(".sphere-albedo") as HTMLInputElement;
+			if (colorInput) {
+				const hex = colorInput.value;
+				const r = parseInt(hex.slice(1, 3), 16) / 255;
+				const g = parseInt(hex.slice(3, 5), 16) / 255;
+				const b = parseInt(hex.slice(5, 7), 16) / 255;
+				defaultAlbedo = [r, g, b, 1.0];
+			}
+		}
+		worldStateManager.addSphere(undefined, undefined, defaultAlbedo);
+		renderSpheresList();
+	});
 
 	renderSpheresList()
 	// ...existing code...

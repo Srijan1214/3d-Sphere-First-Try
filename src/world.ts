@@ -20,6 +20,7 @@ export class World {
 		center: [number, number, number]
 		radius: number
 		exists: boolean
+        albedo: [number, number, number, number]
 	}[] = []
 
 	constructor(
@@ -48,10 +49,10 @@ export class World {
 		// Pre-allocate spheres array to MAX_SPHERES, only first exists
 		this.spheres = Array(World.MAX_SPHERES)
 			.fill(null)
-			.map((_, i) => ({ center: [0, 0, 0], radius: 1, exists: false }))
-		this.spheres[0] = { center: [0, 0, 0], radius: 1, exists: true }
-		this.spheres[1] = { center: [2, 3, -5], radius: 1, exists: true }
-		this.spheres[2] = { center: [0, -30, 0], radius: 28, exists: true }
+			.map((_, i) => ({ center: [0, 0, 0], radius: 1, exists: false, albedo: [1.0, 1.0, 1.0, 1.0] }))
+		this.spheres[0] = { center: [0, 0, 0], radius: 1, exists: true, albedo: [1.0, 0.0, 0.0, 1.0] }
+		this.spheres[1] = { center: [2, 3, -5], radius: 1, exists: true, albedo: [0.0, 1.0, 0.0, 1.0] }
+		this.spheres[2] = { center: [0, -30, 0], radius: 28, exists: true, albedo: [0.0, 0.0, 1.0, 1.0] }
 		this.syncSpheresToGPU()
 		this.updateDirectionalLightUniform(vec3.fromValues(-1.0, -1.0, -1.0))
 	}
@@ -101,7 +102,7 @@ export class World {
 		// Sphere array buffer (16 bytes per sphere: vec3 center + f32 radius)
 		this.spheresArrayBuffer = this.device.createBuffer({
 			label: "Sphere array buffer",
-			size: 16 * World.MAX_SPHERES,
+			size: 32 * World.MAX_SPHERES,
 			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
 		})
 
@@ -132,27 +133,31 @@ export class World {
 	updateSphereAt(
 		index: number,
 		center: [number, number, number],
-		radius: number
+		radius: number,
+		albedo: [number, number, number, number]
 	) {
-		if (index < 0 || index >= World.MAX_SPHERES) return
-		this.spheres[index].center = center
-		this.spheres[index].radius = radius
-		this.spheres[index].exists = true
-		this.syncSpheresToGPU()
+		if (index < 0 || index >= World.MAX_SPHERES) return;
+		this.spheres[index].center = center;
+		this.spheres[index].radius = radius;
+		this.spheres[index].exists = true;
+		this.spheres[index].albedo = albedo;
+		this.syncSpheresToGPU();
 	}
 
 	// Add a new sphere (returns index or -1 if full)
 	addSphere(
 		center: [number, number, number] = [0, 0, 0],
-		radius: number = 1
+		radius: number = 1,
+		albedo: [number, number, number, number] = [1.0, 1.0, 1.0, 1.0]
 	): number {
-		let idx = this.spheres.findIndex((s) => !s.exists)
-		if (idx === -1) return -1
-		this.spheres[idx].center = center
-		this.spheres[idx].radius = radius
-		this.spheres[idx].exists = true
-		this.syncSpheresToGPU()
-		return idx
+		let idx = this.spheres.findIndex((s) => !s.exists);
+		if (idx === -1) return -1;
+		this.spheres[idx].center = center;
+		this.spheres[idx].radius = radius;
+		this.spheres[idx].exists = true;
+		this.spheres[idx].albedo = albedo;
+		this.syncSpheresToGPU();
+		return idx;
 	}
 
 	// Delete a sphere at index
@@ -170,15 +175,19 @@ export class World {
 	// Sync all spheres and existence flags to GPU
 	private syncSpheresToGPU() {
 		const max = World.MAX_SPHERES
-		const sphereData = new Float32Array(4 * max)
+		const sphereData = new Float32Array(8 * max)
 		const existsData = new Uint32Array(max)
 		for (let i = 0; i < max; ++i) {
 			const s = this.spheres[i]
 			if (s && s.exists) {
-				sphereData[i * 4 + 0] = s.center[0]
-				sphereData[i * 4 + 1] = s.center[1]
-				sphereData[i * 4 + 2] = s.center[2]
-				sphereData[i * 4 + 3] = s.radius
+				sphereData[i * 8 + 0] = s.center[0]
+				sphereData[i * 8 + 1] = s.center[1]
+				sphereData[i * 8 + 2] = s.center[2]
+				sphereData[i * 8 + 3] = s.radius
+                sphereData[i * 8 + 4] = s.albedo[0]
+                sphereData[i * 8 + 5] = s.albedo[1]
+                sphereData[i * 8 + 6] = s.albedo[2]
+                sphereData[i * 8 + 7] = s.albedo[3]
 				existsData[i] = 1
 			} else {
 				existsData[i] = 0

@@ -15,19 +15,20 @@ export class WorldStateManager {
 		return this.world.getSpheres()
 	}
 
-	addSphere(center?: [number, number, number], radius?: number) {
-		return this.world.addSphere(center, radius)
+	addSphere(center?: [number, number, number], radius?: number, albedo?: [number, number, number, number]) {
+		return this.world.addSphere(center, radius, albedo);
 	}
 
 	updateSphereAt(
 		index: number,
 		sphere: {
-			center: [number, number, number]
-			radius: number
-			exists: boolean
+			center: [number, number, number];
+			radius: number;
+			exists: boolean;
+			albedo: [number, number, number, number];
 		}
 	) {
-		this.world.updateSphereAt(index, sphere.center, sphere.radius)
+		this.world.updateSphereAt(index, sphere.center, sphere.radius, sphere.albedo)
 	}
 
 	deleteSphere(index: number) {

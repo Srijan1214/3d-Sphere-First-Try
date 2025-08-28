@@ -13,6 +13,7 @@ struct CameraUniforms {
 struct Sphere {
     center: vec3<f32>,
     radius: f32,
+    albedo: vec4<f32>,
 };
 
 @group(0) @binding(0) var outputTex: texture_storage_2d<rgba8unorm, write>;
@@ -120,18 +121,18 @@ fn rayGenShader(pixel: vec2<u32>) -> vec4<f32> {
     var rayOrigin = camera.position;
     var rayDirection = calculateRayDirection(uv);
     const skyColor = vec3(0.0, 0.0, 0.0);
-    var color = vec3(0.0);
+    var color = vec4(0.0, 0.0, 0.0, 1.0);
     var multiplier = 1.0;
     let bounces: u32 = 10;
     for (var i: u32 = 0u; i < bounces; i = i + 1u) {
         let hitPayload = traceRay(rayOrigin, rayDirection);
         if (hitPayload.hitDistance < 0.0) {
-            color += skyColor;
+            color += vec4(skyColor, 1.0);
             break;
         }
 
         let lightIntensity = max(dot(hitPayload.worldNormal, normalize(-directionalLight)), 0.0);
-        var sphereColor = vec3<f32>(0.5, 0.5, 1.0);
+        var sphereColor = spheres[hitPayload.objectIndex].albedo;
         sphereColor *= lightIntensity;
         color += sphereColor * multiplier; 
 
@@ -141,7 +142,7 @@ fn rayGenShader(pixel: vec2<u32>) -> vec4<f32> {
         rayDirection = reflect(rayDirection, hitPayload.worldNormal);
     }
 
-    return vec4(color, 1.0);
+    return color;
 }
 
 // --- Compute entry point ---
