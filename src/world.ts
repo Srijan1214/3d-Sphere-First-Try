@@ -3,21 +3,31 @@ import { Camera } from "./camera"
 import { InputState } from "./InputManager"
 
 export class World {
+	static readonly MAX_SPHERES = 50
 	// World properties
 	public camera: Camera
 	private device: GPUDevice
 
 	private canvasSizeBuffer: GPUBuffer
 	private cameraUniformBuffer: GPUBuffer
-	private sphereUniformBuffer: GPUBuffer
+	private spheresArrayBuffer: GPUBuffer
+	private sphereExistsArrayBuffer: GPUBuffer
 	private directionalLightUniformBuffer: GPUBuffer
+	private sphereSizeBuffer: GPUBuffer
+
+	// CPU-side representation
+	private spheres: {
+		center: [number, number, number]
+		radius: number
+		exists: boolean
+	}[] = []
 
 	constructor(
 		device: GPUDevice,
 		viewportWidth: number,
 		viewportHeight: number
 	) {
-        this.device = device
+		this.device = device
 		this.camera = new Camera(
 			45.0,
 			0.1,
@@ -26,15 +36,28 @@ export class World {
 			viewportHeight
 		)
 		this.allocateUniformBuffers()
-        this.updateCanvasSizeUniform(viewportWidth, viewportHeight)
-        this.updateCameraUniform(this.camera.inverseProjection, this.camera.inverseView, this.camera.projection, this.camera.view, this.camera.position)
-		this.updateSphereUniform(vec3.fromValues(0, 0, 0), 1.0)
-        this.updateDirectionalLightUniform(vec3.fromValues(-1.0, -1.0, -1.0))
+		this.updateCanvasSizeUniform(viewportWidth, viewportHeight)
+		this.updateCameraUniform(
+			this.camera.inverseProjection,
+			this.camera.inverseView,
+			this.camera.projection,
+			this.camera.view,
+			this.camera.position
+		)
+		// Initialize with one default sphere
+		// Pre-allocate spheres array to MAX_SPHERES, only first exists
+		this.spheres = Array(World.MAX_SPHERES)
+			.fill(null)
+			.map((_, i) => ({ center: [0, 0, 0], radius: 1, exists: false }))
+		this.spheres[0] = { center: [0, 0, 0], radius: 1, exists: true }
+		this.spheres[1] = { center: [2, 3, -5], radius: 1, exists: true }
+		this.syncSpheresToGPU()
+		this.updateDirectionalLightUniform(vec3.fromValues(-1.0, -1.0, -1.0))
 	}
 
 	resizeWidthHeight(width: number, height: number) {
 		this.camera.onResize(width, height)
-        this.updateCanvasSizeUniform(width, height)
+		this.updateCanvasSizeUniform(width, height)
 	}
 
 	updateCanvasSizeUniform(canvasWidth: number, canvasHeight: number) {
@@ -50,13 +73,13 @@ export class World {
 		cameraPosition: vec3
 	) {
 		const cameraData = new Float32Array(68) // 4 matrices (64 floats) + position (3 floats) + padding (1 float)
-		cameraData.set(inverseProjection, 0)   // Offset 0-15
-		cameraData.set(inverseView, 16)         // Offset 16-31
-		cameraData.set(projection, 32)          // Offset 32-47
-		cameraData.set(view, 48)                // Offset 48-63
-		cameraData[64] = cameraPosition[0]      // Position X
-		cameraData[65] = cameraPosition[1]      // Position Y
-		cameraData[66] = cameraPosition[2]      // Position Z
+		cameraData.set(inverseProjection, 0) // Offset 0-15
+		cameraData.set(inverseView, 16) // Offset 16-31
+		cameraData.set(projection, 32) // Offset 32-47
+		cameraData.set(view, 48) // Offset 48-63
+		cameraData[64] = cameraPosition[0] // Position X
+		cameraData[65] = cameraPosition[1] // Position Y
+		cameraData[66] = cameraPosition[2] // Position Z
 		// cameraData[67] is padding for alignment
 		this.device.queue.writeBuffer(this.cameraUniformBuffer, 0, cameraData)
 	}
@@ -74,10 +97,18 @@ export class World {
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		})
 
-		// Sphere uniform buffer
-		this.sphereUniformBuffer = this.device.createBuffer({
-			size: 16, // 4 floats (center + radius)
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		// Sphere array buffer (16 bytes per sphere: vec3 center + f32 radius)
+		this.spheresArrayBuffer = this.device.createBuffer({
+			label: "Sphere array buffer",
+			size: 16 * World.MAX_SPHERES,
+			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+		})
+
+		// Sphere existence boolean buffer (1 byte per sphere, padded to 4 bytes for alignment)
+		this.sphereExistsArrayBuffer = this.device.createBuffer({
+			label: "Sphere existence buffer",
+			size: 4 * 4 * Math.ceil(World.MAX_SPHERES / 4),
+			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
 		})
 
 		// Directional light uniform buffer
@@ -85,29 +116,110 @@ export class World {
 			size: 12, // 3 floats (direction)
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		})
+
+		// Sphere count buffer (u32), always set to MAX_SPHERES
+		this.sphereSizeBuffer = this.device.createBuffer({
+			label: "Sphere count buffer",
+			size: 4,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		})
+		const maxSpheresData = new Uint32Array([World.MAX_SPHERES])
+		this.device.queue.writeBuffer(this.sphereSizeBuffer, 0, maxSpheresData)
 	}
 
-	updateSphereUniform(center: vec3, radius: number) {
-		// Initialize sphere data (center at origin, radius 1)
-		const sphereData = new Float32Array([center[0], center[1], center[2], radius])
-		this.device.queue.writeBuffer(this.sphereUniformBuffer, 0, sphereData)
+	// Update a single sphere at index
+	updateSphereAt(
+		index: number,
+		center: [number, number, number],
+		radius: number
+	) {
+		if (index < 0 || index >= World.MAX_SPHERES) return
+		this.spheres[index].center = center
+		this.spheres[index].radius = radius
+		this.spheres[index].exists = true
+		this.syncSpheresToGPU()
 	}
 
-    updateDirectionalLightUniform(direction: vec3) {
-		const lightData = new Float32Array([direction[0], direction[1], direction[2]])
-		this.device.queue.writeBuffer(this.directionalLightUniformBuffer, 0, lightData)
+	// Add a new sphere (returns index or -1 if full)
+	addSphere(
+		center: [number, number, number] = [0, 0, 0],
+		radius: number = 1
+	): number {
+		let idx = this.spheres.findIndex((s) => !s.exists)
+		if (idx === -1) return -1
+		this.spheres[idx].center = center
+		this.spheres[idx].radius = radius
+		this.spheres[idx].exists = true
+		this.syncSpheresToGPU()
+		return idx
+	}
+
+	// Delete a sphere at index
+	deleteSphere(index: number) {
+		if (index < 0 || index >= this.spheres.length) return
+		this.spheres[index].exists = false
+		this.syncSpheresToGPU()
+	}
+
+	// Get all spheres (for UI)
+	getSpheres() {
+		return this.spheres
+	}
+
+	// Sync all spheres and existence flags to GPU
+	private syncSpheresToGPU() {
+		const max = World.MAX_SPHERES
+		const sphereData = new Float32Array(4 * max)
+		const existsData = new Uint32Array(max)
+		for (let i = 0; i < max; ++i) {
+			const s = this.spheres[i]
+			if (s && s.exists) {
+				sphereData[i * 4 + 0] = s.center[0]
+				sphereData[i * 4 + 1] = s.center[1]
+				sphereData[i * 4 + 2] = s.center[2]
+				sphereData[i * 4 + 3] = s.radius
+				existsData[i] = 1
+			} else {
+				existsData[i] = 0
+			}
+		}
+		this.device.queue.writeBuffer(
+			this.spheresArrayBuffer,
+			0,
+			sphereData.buffer
+		)
+		this.device.queue.writeBuffer(
+			this.sphereExistsArrayBuffer,
+			0,
+			existsData.buffer
+		)
+	}
+
+	updateDirectionalLightUniform(direction: vec3) {
+		const lightData = new Float32Array([
+			direction[0],
+			direction[1],
+			direction[2],
+		])
+		this.device.queue.writeBuffer(
+			this.directionalLightUniformBuffer,
+			0,
+			lightData
+		)
 	}
 
 	getWorldGpuUniformBuffers(): GPUBuffer[] {
 		return [
 			this.canvasSizeBuffer,
 			this.cameraUniformBuffer,
-			this.sphereUniformBuffer,
-            this.directionalLightUniformBuffer
+			this.spheresArrayBuffer,
+			this.sphereExistsArrayBuffer,
+			this.sphereSizeBuffer,
+			this.directionalLightUniformBuffer,
 		]
 	}
 
-    getCamera(): Camera {
+	getCamera(): Camera {
 		return this.camera
 	}
 }

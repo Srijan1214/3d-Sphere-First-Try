@@ -18,8 +18,10 @@ struct Sphere {
 @group(0) @binding(0) var outputTex: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> canvasSize: CanvasSize;
 @group(0) @binding(2) var<uniform> camera: CameraUniforms;
-@group(0) @binding(3) var<uniform> sphere: Sphere;
-@group(0) @binding(4) var<uniform> directionalLight: vec3<f32>;
+@group(0) @binding(3) var<storage, read> spheres: array<Sphere>;
+@group(0) @binding(4) var<storage, read> sphereExists: array<u32>;
+@group(0) @binding(5) var<uniform> sphereCount: u32;
+@group(0) @binding(6) var<uniform> directionalLight: vec3<f32>;
 // Output image (rgba8unorm storage texture)
 
 fn calculateRayDirection(uv: vec2<f32>) -> vec3<f32> {
@@ -82,18 +84,27 @@ fn rayGenShader(pixel: vec2<u32>) -> vec4<f32> {
     let rayOrigin = camera.position;
     let rayDirection = calculateRayDirection(uv);
 
-    let t = raySphereIntersection(rayOrigin, rayDirection, sphere.center, sphere.radius);
+    var closestT = 1e30;
+    var hitIndex: i32 = -1;
+    for (var i: u32 = 0u; i < sphereCount; i = i + 1u) {
+        if (sphereExists[i] == 0u) { continue; }
+        let t = raySphereIntersection(rayOrigin, rayDirection, spheres[i].center, spheres[i].radius);
+        if (t > 0.0 && t < closestT) {
+            closestT = t;
+            hitIndex = i32(i);
+        }
+    }
 
-    if (t < 0.0) {
+    if (hitIndex == -1) {
         return missShader();
     }
 
-    let hitPoint = rayOrigin + rayDirection * t;
+    let hitPoint = rayOrigin + rayDirection * closestT;
     if (!isWithinClipPlanes(hitPoint)) {
         return missShader();
     }
 
-    let normal = calculateSphereNormal(hitPoint, sphere.center);
+    let normal = calculateSphereNormal(hitPoint, spheres[u32(hitIndex)].center);
     return closestHitShader(hitPoint, normal);
 }
 

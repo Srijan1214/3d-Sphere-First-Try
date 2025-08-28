@@ -40,50 +40,80 @@ function setupControlPanelListeners(worldStateManager: WorldStateManager) {
 		updateCameraProps()
 	})
 
-	// Sphere radius slider
-	const radiusSlider = document.getElementById(
-		"sphere-radius"
-	) as HTMLInputElement
-	const radiusValue = document.getElementById(
-		"radius-value"
-	) as HTMLSpanElement
+	// --- Spheres List UI ---
+	const spheresList = document.getElementById("spheres-list")!
+	const addSphereBtn = document.getElementById("add-sphere-btn")!
+	const sphereTemplate = document.getElementById(
+		"sphere-template"
+	) as HTMLTemplateElement
 
-	// Sphere position inputs
-	const sphereXInput = document.getElementById("sphere-x") as HTMLInputElement
-	const sphereYInput = document.getElementById("sphere-y") as HTMLInputElement
-	const sphereZInput = document.getElementById("sphere-z") as HTMLInputElement
+	function renderSpheresList() {
+		const spheres = worldStateManager.getSpheres()
+		spheresList.innerHTML = ""
+		spheres.forEach((sphere, i) => {
+			if (!sphere.exists) return
+			const node = sphereTemplate.content.firstElementChild!.cloneNode(
+				true
+			) as HTMLElement
+			node.querySelector(".sphere-index")!.textContent = (
+				i + 1
+			).toString()
+			const radiusInput = node.querySelector(
+				".sphere-radius"
+			) as HTMLInputElement
+			const radiusValue = node.querySelector(
+				".radius-value"
+			) as HTMLSpanElement
+			radiusInput.value = sphere.radius.toString()
+			radiusValue.textContent = sphere.radius.toString()
 
-	// Helper function to get current sphere values
-	const updateSphere = () => {
-		const position: [number, number, number] = [
-			sphereXInput.valueAsNumber,
-			sphereYInput.valueAsNumber,
-			sphereZInput.valueAsNumber
-		]
-		worldStateManager.controlPanelUpdateSphere(
-			position,
-			radiusSlider.valueAsNumber
-		)
+			radiusInput.addEventListener("input", (e) => {
+				const value = +(e.target as HTMLInputElement).value
+				radiusValue.textContent = value.toString()
+				worldStateManager.updateSphereAt(i, {
+					...sphere,
+					radius: value,
+				})
+			})
+
+			;(["x", "y", "z"] as const).forEach((axis, idx) => {
+				const posInput = node.querySelector(
+					`.sphere-${axis}`
+				) as HTMLInputElement
+				posInput.value = sphere.center[idx].toString()
+				posInput.addEventListener("input", (e) => {
+					const value = +(e.target as HTMLInputElement).value
+					const newCenter = [...sphere.center] as [
+						number,
+						number,
+						number
+					]
+					newCenter[idx] = value
+					worldStateManager.updateSphereAt(i, {
+						...sphere,
+						center: newCenter,
+					})
+					renderSpheresList()
+				})
+			})
+			node.querySelector(".delete-sphere-btn")!.addEventListener(
+				"click",
+				() => {
+					worldStateManager.deleteSphere(i)
+					renderSpheresList()
+				}
+			)
+			spheresList.appendChild(node)
+		})
 	}
 
-	radiusSlider.addEventListener("input", (e) => {
-		const value = (e.target as HTMLInputElement).value
-		radiusValue.textContent = value
-		updateSphere()
+	addSphereBtn.addEventListener("click", () => {
+		worldStateManager.addSphere()
+		renderSpheresList()
 	})
 
-	// Sphere position inputs
-	sphereXInput.addEventListener("input", (e) => {
-		updateSphere()
-	})
-
-	sphereYInput.addEventListener("input", (e) => {
-		updateSphere()
-	})
-
-	sphereZInput.addEventListener("input", (e) => {
-		updateSphere()
-	})
+	renderSpheresList()
+	// ...existing code...
 
 	// Light direction sliders
 	const lightXSlider = document.getElementById("light-x") as HTMLInputElement
@@ -157,13 +187,26 @@ export const initMain = async () => {
 			worldStateManager.updateWorldForNextFrame(deltaTime)
 			// Update camera overlay
 			const camera = world.getCamera()
-			if (cameraPosX && cameraPosY && cameraPosZ && cameraDirX && cameraDirY && cameraDirZ) {
+			if (
+				cameraPosX &&
+				cameraPosY &&
+				cameraPosZ &&
+				cameraDirX &&
+				cameraDirY &&
+				cameraDirZ
+			) {
 				cameraPosX.textContent = `x: ${camera.position[0].toFixed(2)}`
 				cameraPosY.textContent = `y: ${camera.position[1].toFixed(2)}`
 				cameraPosZ.textContent = `z: ${camera.position[2].toFixed(2)}`
-				cameraDirX.textContent = `x: ${camera.forwardDirection[0].toFixed(2)}`
-				cameraDirY.textContent = `y: ${camera.forwardDirection[1].toFixed(2)}`
-				cameraDirZ.textContent = `z: ${camera.forwardDirection[2].toFixed(2)}`
+				cameraDirX.textContent = `x: ${camera.forwardDirection[0].toFixed(
+					2
+				)}`
+				cameraDirY.textContent = `y: ${camera.forwardDirection[1].toFixed(
+					2
+				)}`
+				cameraDirZ.textContent = `z: ${camera.forwardDirection[2].toFixed(
+					2
+				)}`
 			}
 		}
 	)

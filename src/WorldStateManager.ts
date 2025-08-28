@@ -10,6 +10,30 @@ export class WorldStateManager {
 		this.inputManager = inputManager
 	}
 
+	// --- Spheres API for UI ---
+	getSpheres() {
+		return this.world.getSpheres()
+	}
+
+	addSphere(center?: [number, number, number], radius?: number) {
+		return this.world.addSphere(center, radius)
+	}
+
+	updateSphereAt(
+		index: number,
+		sphere: {
+			center: [number, number, number]
+			radius: number
+			exists: boolean
+		}
+	) {
+		this.world.updateSphereAt(index, sphere.center, sphere.radius)
+	}
+
+	deleteSphere(index: number) {
+		this.world.deleteSphere(index)
+	}
+
 	resizeEventHandler(canvasWidth: number, canvasHeight: number) {
 		this.world.resizeWidthHeight(canvasWidth, canvasHeight)
 	}
