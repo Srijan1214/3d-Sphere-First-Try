@@ -63,27 +63,37 @@ fn isWithinClipPlanes(worldPoint: vec3<f32>) -> bool {
 }
 
 // --- Pipeline-style functions ---
+struct HitPayload {
+    hitDistance: f32,
+    worldPosition: vec3<f32>,
+    worldNormal: vec3<f32>,
+    objectIndex: i32,
+};
 
-fn missShader() -> vec4<f32> {
-    // Background color (black)
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
-}
-
-fn closestHitShader(hitPoint: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
-    let lightIntensity = max(dot(normal, normalize(-directionalLight)), 0.0);
-    let baseColor = vec3<f32>(0.5, 0.5, 1.0);
-    let color = baseColor * lightIntensity;
-    return vec4<f32>(color, 1.0);
-}
-
-fn rayGenShader(pixel: vec2<u32>) -> vec4<f32> {
-    let uv = vec2<f32>(
-        (f32(pixel.x) / canvasSize.size.x) * 2.0 - 1.0,
-        ((f32(pixel.y) / canvasSize.size.y) * 2.0 - 1.0)
+fn missShader(rayOrigin: vec3<f32>, rayDirection: vec3<f32>) -> HitPayload{
+    var hitPayload = HitPayload(
+        -1.0,                  // hitDistance
+        vec3<f32>(0.0),        // worldPosition
+        vec3<f32>(0.0),        // worldNormal
+        -1                     // objectIndex
     );
-    let rayOrigin = camera.position;
-    let rayDirection = calculateRayDirection(uv);
+    return hitPayload;
+}
 
+fn closestHitShader(rayOrigin: vec3<f32>, rayDirection: vec3<f32>,
+                    hitDistance: f32, objectIndex: i32) -> HitPayload {
+    let worldPosition = rayOrigin + rayDirection * hitDistance;
+    let worldNormal = calculateSphereNormal(worldPosition, spheres[objectIndex].center);
+    var hitPayload = HitPayload(
+        hitDistance,
+        worldPosition,
+        worldNormal,
+        objectIndex
+    );
+    return hitPayload;
+}
+
+fn traceRay(rayOrigin: vec3<f32>, rayDirection: vec3<f32>) -> HitPayload {
     var closestT = 1e30;
     var hitIndex: i32 = -1;
     for (var i: u32 = 0u; i < sphereCount; i = i + 1u) {
@@ -95,17 +105,34 @@ fn rayGenShader(pixel: vec2<u32>) -> vec4<f32> {
         }
     }
 
-    if (hitIndex == -1) {
-        return missShader();
+    if (hitIndex == -1 || !isWithinClipPlanes(rayOrigin + rayDirection * closestT)) {
+        return missShader(rayOrigin, rayDirection);
     }
 
-    let hitPoint = rayOrigin + rayDirection * closestT;
-    if (!isWithinClipPlanes(hitPoint)) {
-        return missShader();
+    return closestHitShader(rayOrigin, rayDirection, closestT, hitIndex);
+}
+
+fn rayGenShader(pixel: vec2<u32>) -> vec4<f32> {
+    let uv = vec2<f32>(
+        (f32(pixel.x) / canvasSize.size.x) * 2.0 - 1.0,
+        ((f32(pixel.y) / canvasSize.size.y) * 2.0 - 1.0)
+    );
+    let rayOrigin = camera.position;
+    let rayDirection = calculateRayDirection(uv);
+    const skyColor = vec3(0.0, 0.0, 0.0);
+    
+    let hitPayload = traceRay(rayOrigin, rayDirection);
+    var color = vec3(0.0);
+    if (hitPayload.hitDistance < 0.0) {
+        color += skyColor;
+        return vec4(color, 1.0);
     }
 
-    let normal = calculateSphereNormal(hitPoint, spheres[u32(hitIndex)].center);
-    return closestHitShader(hitPoint, normal);
+    let lightIntensity = max(dot(hitPayload.worldNormal, normalize(-directionalLight)), 0.0);
+    let sphereBaseColor = vec3<f32>(0.5, 0.5, 1.0);
+    color += sphereBaseColor * lightIntensity; 
+
+    return vec4(color, 1.0);
 }
 
 // --- Compute entry point ---

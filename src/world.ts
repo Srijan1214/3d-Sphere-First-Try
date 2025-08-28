@@ -51,6 +51,7 @@ export class World {
 			.map((_, i) => ({ center: [0, 0, 0], radius: 1, exists: false }))
 		this.spheres[0] = { center: [0, 0, 0], radius: 1, exists: true }
 		this.spheres[1] = { center: [2, 3, -5], radius: 1, exists: true }
+		this.spheres[2] = { center: [0, -30, 0], radius: 28, exists: true }
 		this.syncSpheresToGPU()
 		this.updateDirectionalLightUniform(vec3.fromValues(-1.0, -1.0, -1.0))
 	}
