@@ -117,20 +117,29 @@ fn rayGenShader(pixel: vec2<u32>) -> vec4<f32> {
         (f32(pixel.x) / canvasSize.size.x) * 2.0 - 1.0,
         ((f32(pixel.y) / canvasSize.size.y) * 2.0 - 1.0)
     );
-    let rayOrigin = camera.position;
-    let rayDirection = calculateRayDirection(uv);
+    var rayOrigin = camera.position;
+    var rayDirection = calculateRayDirection(uv);
     const skyColor = vec3(0.0, 0.0, 0.0);
-    
-    let hitPayload = traceRay(rayOrigin, rayDirection);
     var color = vec3(0.0);
-    if (hitPayload.hitDistance < 0.0) {
-        color += skyColor;
-        return vec4(color, 1.0);
-    }
+    var multiplier = 1.0;
+    let bounces: u32 = 10;
+    for (var i: u32 = 0u; i < bounces; i = i + 1u) {
+        let hitPayload = traceRay(rayOrigin, rayDirection);
+        if (hitPayload.hitDistance < 0.0) {
+            color += skyColor;
+            break;
+        }
 
-    let lightIntensity = max(dot(hitPayload.worldNormal, normalize(-directionalLight)), 0.0);
-    let sphereBaseColor = vec3<f32>(0.5, 0.5, 1.0);
-    color += sphereBaseColor * lightIntensity; 
+        let lightIntensity = max(dot(hitPayload.worldNormal, normalize(-directionalLight)), 0.0);
+        var sphereColor = vec3<f32>(0.5, 0.5, 1.0);
+        sphereColor *= lightIntensity;
+        color += sphereColor * multiplier; 
+
+        multiplier *= 0.7;
+
+        rayOrigin = hitPayload.worldPosition + hitPayload.worldNormal * 0.001;
+        rayDirection = reflect(rayDirection, hitPayload.worldNormal);
+    }
 
     return vec4(color, 1.0);
 }
